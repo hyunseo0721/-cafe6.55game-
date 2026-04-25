@@ -190,19 +190,24 @@
             // 클래식용 가이드 이미지가 있다면 여기에 넣으세요
         };
 
-        document.getElementById('settings-btn').onclick = () => {
-            if (!isStarted || isGameOver) return;
-            isPaused = true;
-            document.getElementById('settings-overlay').style.display = 'flex';
-            Runner.stop(runner);
-        };
+      document.getElementById('settings-btn').onclick = (e) => {
+    e.stopPropagation(); // 클릭 신호가 뒤쪽 게임 화면으로 전달되는 걸 막음!
+    if (!isStarted || isGameOver) return;
+    isPaused = true;
+    document.getElementById('settings-overlay').style.display = 'flex';
+    Runner.stop(runner);
+};
 
-        document.getElementById('close-settings').onclick = () => {
-            isPaused = false;
-            document.getElementById('settings-overlay').style.display = 'none';
-            Runner.run(runner, engine);
-        };
-
+        document.getElementById('close-settings').onclick = (e) => {
+    e.stopPropagation(); // 닫기 버튼 누를 때 공 떨어지는 것 방지
+    document.getElementById('settings-overlay').style.display = 'none';
+    
+    // 아주 잠깐(0.1초) 뒤에 일시정지를 풀어야 손가락 떼는 동작이랑 안 겹쳐!
+    setTimeout(() => {
+        isPaused = false;
+        Runner.run(runner, engine);
+    }, 100);
+};
         // --- 게임 시작 및 로직 ---
         document.getElementById('start-btn').addEventListener('click', () => {
             document.getElementById('start-screen').style.display = 'none';
@@ -241,24 +246,52 @@
             return x;
         };
 
-        const dropHandler = (clientX) => {
-            if (isGameOver || isCoolingDown || !isStarted || isPaused) return;
-            const x = updateGuidePosition(clientX);
-            playSound(dropSound);
-            Composite.add(engine.world, Bodies.circle(x, 100, LEVELS[currentLevel].r, { label: 'fruit', level: currentLevel, restitution: 0.3, spawnTime: Date.now(), render: { fillStyle: LEVELS[currentLevel].color, strokeStyle: '#fff', lineWidth: 2 } }));
-            isCoolingDown = true; document.getElementById('current-fruit-preview').style.opacity = "0";
-            setTimeout(() => { if (!isGameOver && !isPaused) { currentLevel = nextLevel; nextLevel = Math.floor(Math.random() * 3); updatePreviews(true); isCoolingDown = false; } else { isCoolingDown = false; } }, 400); 
-        };
+       const dropHandler = (clientX, e) => {
+    // 설정 버튼이나 설정창 내부를 클릭했을 때는 공이 안 떨어지게 막음
+    if (e && (e.target.closest('#settings-btn') || e.target.closest('.settings-box'))) {
+        return;
+    }
 
-        wrapper.addEventListener('mousemove', (e) => updateGuidePosition(e.clientX));
-        wrapper.addEventListener('mouseup', (e) => dropHandler(e.clientX));
-        wrapper.addEventListener('touchmove', (e) => {
-            if (e.target.closest('#rank-list') || isPaused) return; 
-            e.preventDefault(); 
-            updateGuidePosition(e.touches[0].clientX); 
-        }, {passive:false});
-        wrapper.addEventListener('touchend', (e) => { dropHandler(e.changedTouches[0].clientX); });
+    if (isGameOver || isCoolingDown || !isStarted || isPaused) return;
+    
+    const x = updateGuidePosition(clientX);
+    playSound(dropSound);
+    Composite.add(engine.world, Bodies.circle(x, 100, LEVELS[currentLevel].r, { 
+        label: 'fruit', 
+        level: currentLevel, 
+        restitution: 0.3, 
+        spawnTime: Date.now(), 
+        render: { fillStyle: LEVELS[currentLevel].color, strokeStyle: '#fff', lineWidth: 2 } 
+    }));
+    
+    isCoolingDown = true; 
+    document.getElementById('current-fruit-preview').style.opacity = "0";
+    
+    setTimeout(() => { 
+        if (!isGameOver && !isPaused) { 
+            currentLevel = nextLevel; 
+            nextLevel = Math.floor(Math.random() * 3); 
+            updatePreviews(true); 
+            isCoolingDown = false; 
+        } else { 
+            isCoolingDown = false; 
+        } 
+    }, 400); 
+};
 
+      wrapper.addEventListener('mousemove', (e) => updateGuidePosition(e.clientX));
+
+// 1. mouseup 부분 수정 (뒤에 e를 추가!)
+wrapper.addEventListener('mouseup', (e) => dropHandler(e.clientX, e)); 
+
+wrapper.addEventListener('touchmove', (e) => {
+    if (e.target.closest('#rank-list') || isPaused) return; 
+    e.preventDefault(); 
+    updateGuidePosition(e.touches[0].clientX); 
+}, {passive:false});
+
+// 2. touchend 부분 수정 (뒤에 e를 추가!)
+wrapper.addEventListener('touchend', (e) => { dropHandler(e.changedTouches[0].clientX, e); });
         Events.on(engine, 'collisionStart', (e) => {
             e.pairs.forEach((p) => {
                 const { bodyA, bodyB } = p;
