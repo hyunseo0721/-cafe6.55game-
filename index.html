@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🌿 카페 6.55 배추 진화!</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <style>
+        body { margin: 0; background: #dcedc8; overflow: hidden; font-family: 'Pretendard', sans-serif; display: flex; justify-content: center; align-items: center; height: 100dvh; touch-action: none; }
+        #game-wrapper { position: relative; width: 100vw; height: 92dvh; max-width: 52vh; background: #f1f8e9; overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.2); border-bottom: 8px solid #33691e; }
+        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(241, 248, 233, 0.98); z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+
+        /* 설정창 스타일 */
+        #settings-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 2000; flex-direction: column; align-items: center; justify-content: center; }
+        .settings-box { background: white; padding: 25px; border-radius: 20px; border: 4px solid #8bc34a; text-align: center; width: 80%; max-width: 320px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        .setting-item { margin: 20px 0; text-align: left; }
+        .setting-label { font-weight: bold; color: #558b2f; display: block; margin-bottom: 8px; font-size: 14px; }
+        input[type="range"] { width: 100%; accent-color: #8bc34a; cursor: pointer; }
+        .skin-options { display: flex; gap: 10px; justify-content: center; }
+        .skin-btn { flex: 1; padding: 10px; border: 2px solid #ddd; border-radius: 10px; background: #f9f9f9; cursor: pointer; font-size: 13px; font-weight: bold; }
+        .skin-btn.active { border-color: #8bc34a; background: #f1f8e9; color: #2e7d32; }
+
+        #game-title { font-size: 28px; font-weight: bold; color: #2e7d32; margin-top: 20px; margin-bottom: 15px; text-align: center; }
+        #ranking-board { width: 85%; max-height: 45%; background: white; border-radius: 20px; padding: 15px; border: 3px solid #c5e1a5; box-shadow: 0 10px 20px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        #ranking-title { font-size: 16px; font-weight: bold; color: #558b2f; text-align: center; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        #rank-list { overflow-y: auto !important; max-height: 250px !important; -webkit-overflow-scrolling: touch !important; touch-action: pan-y !important; position: relative; z-index: 1001; }
+        .rank-item { display: flex; justify-content: space-between; padding: 8px 10px; border-bottom: 1px solid #f9f9f9; font-size: 14px; }
+        .rank-num { font-weight: bold; color: #8bc34a; width: 40px; }
+        .rank-name { flex-grow: 1; text-align: left; color: #333; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .rank-score { font-weight: bold; color: #2e7d32; margin-left: 10px; }
+        .btn { padding: 12px 35px; font-size: 18px; font-weight: bold; background: #8bc34a; color: white; border: none; border-radius: 50px; cursor: pointer; box-shadow: 0 4px 0 #689f38; transition: 0.2s; margin-top: 10px; }
+        .btn:active { transform: translateY(4px); box-shadow: none; }
+        #gameover-screen { display: none; }
+        #name-input { padding: 12px; border: 2px solid #8bc34a; border-radius: 10px; width: 70%; font-size: 16px; text-align: center; margin-bottom: 15px; outline: none; }
+        #ui-layer { position: absolute; top: 15px; left: 20px; z-index: 10; display: flex; flex-direction: column; gap: 0; }
+        #score-label { font-size: 14px; color: #558b2f; font-weight: bold; margin-bottom: -5px; letter-spacing: 1px; }
+        #score { font-size: 40px; font-weight: 800; color: #2e7d32; text-shadow: 1px 1px 0 white; margin-bottom: 2px; }
+        #best-score-container { font-size: 12px; color: #795548; font-weight: bold; background: rgba(255,255,255,0.7); padding: 2px 10px; border-radius: 10px; width: fit-content; border: 1px solid #d7ccc8; }
+        #settings-btn { font-size: 11px; color: #5d4037; font-weight: bold; background: rgba(255,255,255,0.8); padding: 4px 10px; border-radius: 10px; border: 1px solid #d7ccc8; cursor: pointer; margin-top: 5px; width: fit-content; }
+        #next-container { position: absolute; top: 15px; right: 15px; background: rgba(255, 255, 255, 0.9); padding: 6px; border-radius: 12px; border: 2.5px solid #8bc34a; width: 50px; z-index: 20; }
+        #next-label { font-size: 10px; color: #558b2f; font-weight: bold; margin-bottom: 2px; text-align: center; }
+        #next-preview { width: 22px; height: 22px; border-radius: 50%; margin: 0 auto; background-size: cover; background-position: center; }
+        #evolution-container { position: absolute; top: 100px; right: 8px; background: rgba(255, 255, 255, 0.85); padding: 10px 6px; border-radius: 16px; border: 2px solid #6d4c41; width: 74px; text-align: center; z-index: 20; opacity: 0.6; transition: opacity 0.3s; box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+        #evolution-container:hover { opacity: 1; }
+        #evolution-label { font-size: 9px; color: #5d4037; font-weight: bold; margin-bottom: 6px; }
+        #evolution-wheel { width: 60px; height: 60px; position: relative; margin: 0 auto; }
+        .evo-fruit { position: absolute; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.8); box-shadow: 0 1px 3px rgba(0,0,0,0.2); background-size: cover; background-position: center; }
+        #guide-container { position: absolute; top: 15px; width: 100px; height: 100%; pointer-events: none; display: flex; flex-direction: column; align-items: center; z-index: 100; opacity: 0; transition: opacity 0.2s; }
+        #guide-img { width: 80px; height: auto; }
+        #current-fruit-preview { width: 25px; height: 25px; border-radius: 50%; border: 2px solid white; margin-top: -12px; background-size: cover; background-position: center; }
+        #drop-line { width: 1.5px; flex-grow: 1; border-left: 2px dashed rgba(139, 195, 74, 0.3); margin-top: 5px; }
+        #dead-line { position: absolute; top: 90px; width: 100%; border-top: 2.5px dashed rgba(255, 100, 100, 0.5); z-index: 5; }
+    </style>
+</head>
+<body>
+    <div id="game-wrapper">
+        <div id="start-screen" class="overlay">
+            <div id="game-title">🌿 카페 6.55<br>배추 진화!</div>
+            <div id="ranking-board">
+                <div id="ranking-title">🏆 전 세계 랭킹 (Top 30)</div>
+                <div id="rank-list">랭킹 불러오는 중...</div>
+            </div>
+            <button id="start-btn" class="btn">게임 시작</button>
+        </div>
+
+        <div id="settings-overlay">
+            <div class="settings-box">
+                <h2 style="color: #2e7d32; margin-top: 0;">⚙️ 설정</h2>
+                <div class="setting-item">
+                    <span class="setting-label">🔊 효과음 볼륨: <span id="vol-value">50</span>%</span>
+                    <input type="range" id="vol-slider" min="0" max="100" value="50">
+                </div>
+                <div class="setting-item">
+                    <span class="setting-label">🎨 스킨 선택</span>
+                    <div class="skin-options">
+                        <button class="skin-btn active" id="skin-cabbage">기본</button>
+                        <button class="skin-btn" id="skin-classic">클래식</button>
+                    </div>
+                </div>
+                <button id="close-settings" class="btn" style="width:100%">계속하기</button>
+            </div>
+        </div>
+
+        <div id="gameover-screen" class="overlay">
+            <h2 style="color: #d32f2f;">GAME OVER</h2>
+            <div id="final-score-text" style="font-size:20px; margin-bottom:15px;">최종 점수: <span id="last-score">0</span></div>
+            <input type="text" id="name-input" placeholder="이름 입력 (8자 내)" maxlength="8">
+            <button id="save-btn" class="btn">기록 등록</button>
+        </div>
+
+        <div id="ui-layer">
+            <div id="score-label">SCORE</div>
+            <div id="score">0</div>
+            <div id="best-score-container">BEST: <span id="best-score">0</span></div>
+            <div id="settings-btn">⚙️ SETTINGS</div>
+        </div>
+
+        <div id="dead-line"></div>
+        <div id="guide-container">
+            <img id="guide-img" src="제목_없는_디자인-removebg-preview.png" alt="guide">
+            <div id="current-fruit-preview"></div>
+            <div id="drop-line"></div>
+        </div>
+        <div id="next-container"><div id="next-label">다음</div><div id="next-preview"></div></div>
+        <div id="evolution-container"><div id="evolution-label">진화의 고리</div><div id="evolution-wheel"></div></div>
+    </div>
+
+    <script>
+        // =====================
+        // Firebase 초기화
+        // =====================
+        const firebaseConfig = {
+            apiKey: "AIzaSyA4x39DbslNIAnEmOa5TBr2IEh92omrliQ",
+            authDomain: "cafe655-rank.firebaseapp.com",
+            databaseURL: "https://cafe655-rank-default-rtdb.asia-southeast1.firebasedatabase.app/",
+            projectId: "cafe655-rank",
+            storageBucket: "cafe655-rank.firebasestorage.app",
+            messagingSenderId: "377525867584",
+            appId: "1:377525867584:web:b225478a60f73cc751bba5",
+            measurementId: "G-KCSS587X2N"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // =====================
+        // 로컬 최고 점수
+        // =====================
+        let localBest = parseInt(localStorage.getItem('myPersonalBest')) || 0;
+        document.getElementById('best-score').innerText = localBest;
+
+        // =====================
+        // 사운드
+        // =====================
+        const dropSound = new Audio('174718__paespedro__single-water-drop.wav');
+        const mergeSound = new Audio('425209__velkstar__water_drop.wav');
+        let volume = 0.5;
+        function playSound(sound) { const s = sound.cloneNode(); s.volume = volume; s.play().catch(() => {}); }
+
+        // =====================
+        // Matter.js 초기화
+        // =====================
+        const { Engine, Render, Runner, Bodies, Composite, Events } = Matter;
+        const wrapper = document.getElementById('game-wrapper');
+        let WIDTH = wrapper.clientWidth, HEIGHT = wrapper.clientHeight;
+        const DEAD_LINE_Y = 90;
+        const engine = Engine.create(), runner = Runner.create();
+        const render = Render.create({
+            element: wrapper, engine: engine,
+            options: { 
+                width: WIDTH, height: HEIGHT, 
+                wireframes: false, background: '#f1f8e9'
+            }
+        });
+
+        // =====================
+        // 스킨 시스템
+        // =====================
+        // 기본 스킨 이미지 파일명 (레벨 0~6)
+        const SKIN_IMAGES = [
+            'ChatGPT_Image_2026년_5월_2일_오후_01_57_33-removebg-preview.png', // 레벨 1 (index 0)
+            'ChatGPT_Image_2026년_5월_2일_오후_01_57_33-removebg-preview.png', // 레벨 2 (1과 동일)
+            'ChatGPT_Image_2026년_5월_2일_오후_01_57_33-removebg-preview.png', // 레벨 3 (1과 동일)
+            'ChatGPT_Image_2026년_5월_2일_오후_01_57_33-removebg-preview.png', // 레벨 4 (1과 동일)
+            'ChatGPT_Image_2026년_5월_2일_오후_02_25_42-removebg-preview.png', // 레벨 5
+            'ChatGPT_Image_2026년_5월_2일_오후_02_35_14-removebg-preview.png', // 레벨 6
+            'ChatGPT_Image_2026년_5월_2일_오후_02_30_17-removebg-preview.png', // 레벨 7
+        ];
+
+        // 이미지 미리 로드 & 크기 캐싱 (로드 완료 보장)
+        const imgCache = {};
+        const imgLoadPromises = [];
+        SKIN_IMAGES.forEach(src => {
+            if (imgCache[src]) return;
+            const image = new Image();
+            const p = new Promise(resolve => {
+                image.onload = () => resolve();
+                image.onerror = () => resolve(); // 실패해도 진행
+            });
+            image.src = src;
+            imgCache[src] = image;
+            imgLoadPromises.push(p);
+        });
+
+        // =====================
+        // 레벨 정의
+        // =====================
+        const LEVELS = [
+            { r: WIDTH*0.045, color: '#DCEDC8' },
+            { r: WIDTH*0.07,  color: '#AED581' },
+            { r: WIDTH*0.1,   color: '#8BC34A' },
+            { r: WIDTH*0.14,  color: '#FFB74D' },
+            { r: WIDTH*0.19,  color: '#FF8A65' },
+            { r: WIDTH*0.25,  color: '#EF5350' },
+            { r: WIDTH*0.32,  color: '#6D4C41' },
+        ];
+
+        // 스킨별 render 옵션 생성 헬퍼
+        function getRenderOpts(level) {
+            const lv = LEVELS[level];
+            if (currentSkin === 'classic') {
+                return { fillStyle: lv.color, strokeStyle: '#fff', lineWidth: 2, visible: true };
+            } else {
+                const imgSrc = SKIN_IMAGES[level];
+                const img = imgCache[imgSrc];
+                const naturalSize = (img && img.naturalWidth > 0) ? img.naturalWidth : 500;
+                // 이미지에 패딩(15px)이 있으므로 실제 캐릭터는 470/500 = 94% 크기
+                // 공 지름에 맞게 scale 계산 시 패딩 보정
+                const scale = (lv.r * 2) / (naturalSize * (1 - 30/500));
+                return {
+                    fillStyle: 'transparent',
+                    strokeStyle: 'transparent',
+                    lineWidth: 0,
+                    visible: true,
+                    sprite: { texture: imgSrc, xScale: scale, yScale: scale }
+                };
+            }
+        }
+
+        // =====================
+        // 과일 바디 생성 함수
+        // =====================
+        function makeFruitBody(x, y, level) {
+            const lv = LEVELS[level];
+            return Bodies.circle(x, y, lv.r, {
+                label: 'fruit',
+                level: level,
+                restitution: 0.3,
+                spawnTime: Date.now(),
+                render: getRenderOpts(level)
+            });
+        }
+
+        // =====================
+        // 게임 상태
+        // =====================
+        let isStarted = false, isPaused = false, score = 0, isGameOver = false, isCoolingDown = false;
+        let currentSkin = 'cabbage'; // 시작 시 기본 스킨
+        let currentLevel = Math.floor(Math.random() * 3), nextLevel = Math.floor(Math.random() * 3), startTime = 0;
+
+        // =====================
+        // 미리보기 업데이트 (스킨 반영)
+        // =====================
+        function updatePreviews(showCurrent = true) {
+            const cur = document.getElementById('current-fruit-preview');
+            const nxt = document.getElementById('next-preview');
+            const size = LEVELS[currentLevel].r * 1.8;
+            cur.style.width = cur.style.height = size + 'px';
+            cur.style.opacity = showCurrent ? "1" : "0";
+
+            if (currentSkin === 'classic') {
+                cur.style.backgroundColor = LEVELS[currentLevel].color;
+                cur.style.backgroundImage = '';
+                cur.style.border = '2px solid white';
+                cur.style.borderRadius = '50%';
+                nxt.style.backgroundColor = LEVELS[nextLevel].color;
+                nxt.style.backgroundImage = '';
+                nxt.style.border = '2px solid white';
+                nxt.style.borderRadius = '50%';
+            } else {
+                cur.style.backgroundColor = 'transparent';
+                cur.style.backgroundImage = `url('${SKIN_IMAGES[currentLevel]}')`;
+                cur.style.backgroundSize = 'contain';
+                cur.style.backgroundRepeat = 'no-repeat';
+                cur.style.border = 'none';
+                cur.style.borderRadius = '0';
+                nxt.style.backgroundColor = 'transparent';
+                nxt.style.backgroundImage = `url('${SKIN_IMAGES[nextLevel]}')`;
+                nxt.style.backgroundSize = 'contain';
+                nxt.style.backgroundRepeat = 'no-repeat';
+                nxt.style.border = 'none';
+                nxt.style.borderRadius = '0';
+            }
+        }
+        updatePreviews();
+
+        // =====================
+        // 랭킹
+        // =====================
+        function fetchRankings() {
+            database.ref('rankings').orderByChild('score').limitToLast(30).on('value', (snapshot) => {
+                const list = document.getElementById('rank-list');
+                list.innerHTML = '';
+                let ranks = [];
+                snapshot.forEach((child) => { ranks.push(child.val()); });
+                ranks.reverse();
+                if (ranks.length === 0) list.innerHTML = '<div style="text-align:center; color:#aaa; font-size:12px; padding:10px;">첫 기록을 남겨보세요!</div>';
+                ranks.forEach((s, i) => { list.innerHTML += `<div class="rank-item"><span class="rank-num">${i+1}위</span> <span class="rank-name">${s.name}</span> <span class="rank-score">${s.score}점</span></div>`; });
+            });
+        }
+        fetchRankings();
+
+        // =====================
+        // 진화의 고리 (클래식은 색, 기본은 이미지 미리보기)
+        // =====================
+        function createEvolutionWheel() {
+            const wheel = document.getElementById('evolution-wheel');
+            wheel.innerHTML = '';
+            const wheelSize = 60, center = wheelSize / 2, radius = 22;
+            // 레벨별 도트 크기 (작은→큰 느낌)
+            const dotSizes = [8, 9, 10, 11, 12, 13, 15];
+            LEVELS.forEach((lv, i) => {
+                const dot = document.createElement('div');
+                dot.className = 'evo-fruit';
+                const angle = (i / LEVELS.length) * (Math.PI * 2) - (Math.PI / 2);
+                const size = dotSizes[i];
+                dot.style.width = size + 'px';
+                dot.style.height = size + 'px';
+                dot.style.left = (center + radius * Math.cos(angle) - size / 2) + 'px';
+                dot.style.top = (center + radius * Math.sin(angle) - size / 2) + 'px';
+                if (currentSkin === 'classic') {
+                    dot.style.backgroundColor = lv.color;
+                    dot.style.backgroundImage = '';
+                } else {
+                    dot.style.backgroundImage = `url('${SKIN_IMAGES[i]}')`;
+                    dot.style.backgroundSize = 'cover';
+                    dot.style.backgroundColor = 'transparent';
+                }
+                wheel.appendChild(dot);
+            });
+        }
+        createEvolutionWheel();
+
+        // =====================
+        // 설정 이벤트
+        // =====================
+        const volSlider = document.getElementById('vol-slider');
+        volSlider.oninput = (e) => {
+            volume = e.target.value / 100;
+            document.getElementById('vol-value').innerText = e.target.value;
+        };
+
+        // 스킨 변경 시 월드의 모든 공 render 업데이트
+        function applySkinToAllBodies() {
+            const bodies = Composite.allBodies(engine.world);
+            bodies.forEach(b => {
+                if (b.isStatic || b.label !== 'fruit') return;
+                const opts = getRenderOpts(b.level);
+                // Matter.Body.set으로 render 속성 교체
+                Matter.Body.set(b, 'render', opts);
+            });
+        }
+
+        document.getElementById('skin-cabbage').onclick = () => {
+            currentSkin = 'cabbage';
+            document.getElementById('skin-cabbage').classList.add('active');
+            document.getElementById('skin-classic').classList.remove('active');
+            document.getElementById('guide-img').src = "제목_없는_디자인-removebg-preview.png";
+            updatePreviews();
+            createEvolutionWheel();
+            applySkinToAllBodies();
+        };
+
+        document.getElementById('skin-classic').onclick = () => {
+            currentSkin = 'classic';
+            document.getElementById('skin-classic').classList.add('active');
+            document.getElementById('skin-cabbage').classList.remove('active');
+            updatePreviews();
+            createEvolutionWheel();
+            applySkinToAllBodies();
+        };
+
+        document.getElementById('settings-btn').onclick = (e) => {
+            e.stopPropagation();
+            if (!isStarted || isGameOver) return;
+            isPaused = true;
+            document.getElementById('settings-overlay').style.display = 'flex';
+            Runner.stop(runner);
+        };
+
+        document.getElementById('close-settings').onclick = (e) => {
+            e.stopPropagation();
+            document.getElementById('settings-overlay').style.display = 'none';
+            setTimeout(() => {
+                isPaused = false;
+                Runner.run(runner, engine);
+            }, 100);
+        };
+
+        // =====================
+        // 게임 시작
+        // =====================
+        document.getElementById('start-btn').addEventListener('click', () => {
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('guide-container').style.opacity = '1';
+            isStarted = true; startTime = Date.now();
+            Render.run(render); Runner.run(runner, engine);
+        });
+
+        document.getElementById('save-btn').addEventListener('click', function() {
+            const nameInput = document.getElementById('name-input');
+            const name = nameInput.value.trim() || "익명";
+            this.disabled = true;
+            database.ref('rankings').push({ name: name, score: score, timestamp: Date.now() }).then(() => {
+                window.location.reload();
+            });
+        });
+
+        // =====================
+        // 물리 벽/바닥
+        // =====================
+        const ground = Bodies.rectangle(WIDTH/2, HEIGHT - 10, WIDTH, 20, { isStatic: true, render: { fillStyle: '#33691e' } });
+        Composite.add(engine.world, [
+            ground,
+            Bodies.rectangle(-10, HEIGHT/2, 20, HEIGHT, { isStatic: true }),
+            Bodies.rectangle(WIDTH + 10, HEIGHT/2, 20, HEIGHT, { isStatic: true })
+        ]);
+
+        // =====================
+        // 가이드 위치
+        // =====================
+        const updateGuidePosition = (clientX) => {
+            if (!isStarted || isPaused || isGameOver) return;
+            const rect = wrapper.getBoundingClientRect();
+            const x = Math.max(15, Math.min(WIDTH - 15, clientX - rect.left));
+            document.getElementById('guide-container').style.left = (x - 50) + 'px';
+            return x;
+        };
+
+        // =====================
+        // 공 드롭
+        // =====================
+        const dropHandler = (clientX, e) => {
+            if (e && (e.target.closest('#settings-btn') || e.target.closest('.settings-box'))) return;
+            if (isGameOver || isCoolingDown || !isStarted || isPaused) return;
+
+            const x = updateGuidePosition(clientX);
+            playSound(dropSound);
+
+            Composite.add(engine.world, makeFruitBody(x, 100, currentLevel));
+
+            isCoolingDown = true;
+            document.getElementById('current-fruit-preview').style.opacity = "0";
+
+            setTimeout(() => {
+                if (!isGameOver && !isPaused) {
+                    currentLevel = nextLevel;
+                    nextLevel = Math.floor(Math.random() * 3);
+                    updatePreviews(true);
+                    isCoolingDown = false;
+                } else {
+                    isCoolingDown = false;
+                }
+            }, 400);
+        };
+
+        wrapper.addEventListener('mousemove', (e) => updateGuidePosition(e.clientX));
+        wrapper.addEventListener('mouseup', (e) => dropHandler(e.clientX, e));
+        wrapper.addEventListener('touchmove', (e) => {
+            if (e.target.closest('#rank-list') || isPaused) return;
+            e.preventDefault();
+            updateGuidePosition(e.touches[0].clientX);
+        }, { passive: false });
+        wrapper.addEventListener('touchend', (e) => { dropHandler(e.changedTouches[0].clientX, e); });
+
+        // =====================
+        // 충돌 (합치기)
+        // =====================
+        Events.on(engine, 'collisionStart', (e) => {
+            e.pairs.forEach((p) => {
+                const { bodyA, bodyB } = p;
+                if (bodyA.label === 'fruit' && bodyB.label === 'fruit' && bodyA.level === bodyB.level) {
+                    playSound(mergeSound);
+                    const nextLv = bodyA.level + 1;
+                    const mx = (bodyA.position.x + bodyB.position.x) / 2;
+                    const my = (bodyA.position.y + bodyB.position.y) / 2;
+                    Composite.remove(engine.world, [bodyA, bodyB]);
+                    if (nextLv < LEVELS.length) {
+                        Composite.add(engine.world, makeFruitBody(mx, my, nextLv));
+                        score += (nextLv + 1) * 10;
+                    } else {
+                        score += 2000;
+                    }
+                    document.getElementById('score').innerText = score;
+                }
+            });
+        });
+
+        // =====================
+        // 게임오버 판정
+        // =====================
+        Events.on(engine, 'afterUpdate', () => {
+            if (isGameOver || !isStarted || isPaused || (Date.now() - startTime < 1500)) return;
+            const bodies = Composite.allBodies(engine.world);
+            for (let i = 0; i < bodies.length; i++) {
+                const b = bodies[i];
+                if (b.isStatic || b.label !== 'fruit') continue;
+                if (b.position.y - b.circleRadius < DEAD_LINE_Y) {
+                    if (Date.now() - b.spawnTime > 1000 && Math.abs(b.velocity.y) < 0.2) {
+                        isGameOver = true;
+                        if (score > localBest) {
+                            localBest = score;
+                            localStorage.setItem('myPersonalBest', localBest);
+                            document.getElementById('best-score').innerText = localBest;
+                        }
+                        document.getElementById('last-score').innerText = score;
+                        document.getElementById('gameover-screen').style.display = 'flex';
+                        break;
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
